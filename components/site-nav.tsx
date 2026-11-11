@@ -9,8 +9,7 @@ const links = [
   { href: "/courses", label: "Courses" },
   { href: "/assignments", label: "Assignments" },
   { href: "/assignments/new", label: "Add assignment" },
-  { href: "/calendar", label: "Calendar" },
-  { href: "/settings", label: "Settings" },
+  { href: "/assignments/import", label: "Import syllabus" },
   { href: "/health", label: "Health" },
 ] as const;
 

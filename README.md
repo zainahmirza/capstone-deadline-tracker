@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Deadline Tracker
 
-## Getting Started
+Track courses, assignments and due dates in one place. Paste a syllabus and AI extracts the deadlines for you.
 
-First, run the development server:
+**Live:** https://capstone-deadline-tracker.vercel.app
+
+## Run locally (< 5 min)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # add GEMINI_API_KEY (free key: https://aistudio.google.com)
+npm run dev                  # http://localhost:3000
+npm test                     # unit/component tests
+npm run test:coverage        # coverage report
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app works without a key; only "Import from syllabus" needs it (it shows an error and links to manual entry).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Path | Role |
+|---|---|
+| `app/page.tsx` | Dashboard: due in 7 days, overdue, counts by status |
+| `app/courses`, `app/assignments` | Add/delete courses; list, filter, change status, delete assignments |
+| `app/assignments/new` | Manual assignment form |
+| `app/assignments/import` | AI import: paste text → extract → review → save |
+| `app/api/extract/route.ts` | Server-only route handler that calls the LLM |
+| `lib/extract.ts` | Prompt + validation of the model's JSON output |
+| `lib/storage.ts` | localStorage persistence (no backend) |
+| `components/` | `AssignmentRow`, `ExtractionReview`, `SiteNav` |
 
-## Learn More
+## AI integration
 
-To learn more about Next.js, take a look at the following resources:
+- **What:** the user pastes a syllabus; the model returns a JSON array of `{title, dueDate, notes}`.
+- **Why:** typing every deadline by hand is the slowest part of using a tracker.
+- **Model:** Google Gemini (`gemini-2.5-flash`, free tier) called from the server route with JSON output mode, temperature 0. The key lives only in `GEMINI_API_KEY` (never `NEXT_PUBLIC_`).
+- **Prompt:** system instruction in `lib/extract.ts`: only include items with a specific date, never invent items, return `[]` if none.
+- **Safety:** output is untrusted. `parseExtraction` strips code fences, requires an array, drops items with empty titles or impossible dates, dedupes, and caps lengths. The user reviews and unticks anything wrong before saving.
+- **Fails safely:** missing key, timeout (25 s), non-200, or invalid JSON → an error message with an "Add manually" link. Nothing is saved without review.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Known limitations / future work
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Data is per-browser (localStorage); no accounts or sync.
+- Assignments can't be edited after creation (only status/delete); courses can't be edited.
+- Pasted text only (no PDF upload); 15,000 character limit.
+- No calendar view; removed stub pages (calendar, settings) to avoid shipping unfinished screens.
+- Pre-existing lint warnings (`react-hooks/set-state-in-effect`) from reading localStorage in effects.
 
-## Deploy on Vercel
+## Rollback / monitoring
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Vercel keeps every deployment. Rollback = Vercel dashboard → Deployments → previous good deploy → "Promote to Production" (or `git revert` and push to `main`). `/health` shows the app is serving.
