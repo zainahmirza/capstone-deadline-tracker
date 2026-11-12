@@ -68,36 +68,24 @@ function AssignmentRow({
 export default function DashboardPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [now, setNow] = useState<Date | null>(null);
   const [ready, setReady] = useState(false);
-  const [today, setToday] = useState("");
 
   useEffect(() => {
     setAssignments(getAssignments());
     setCourses(getCourses());
-    setToday(toDateOnly(new Date()));
+    setNow(new Date());
     setReady(true);
   }, []);
-  
+
   const courseById = useMemo(() => {
     return new Map(courses.map((course) => [course.id, course]));
   }, [courses]);
 
   const { dueSoon, overdue, statusCounts } = useMemo(() => {
-    if (!today) {
-      return {
-        dueSoon: [],
-        overdue: [],
-        statusCounts: {
-          todo: 0,
-          "in-progress": 0,
-          done: 0,
-        },
-      };
-    }
-  
-    const weekAhead = toDateOnly(
-      addDays(new Date(`${today}T00:00:00`), 7)
-    );
+    const base = now ?? new Date(0);
+    const today = toDateOnly(base);
+    const weekAhead = toDateOnly(addDays(base, 7));
 
     const incomplete = assignments.filter(
       (assignment) => assignment.status !== "done",
@@ -129,7 +117,7 @@ export default function DashboardPage() {
       overdue: overdueItems,
       statusCounts: counts,
     };
-  }, [assignments, today]);
+  }, [assignments, now]);
 
   return (
     <section className="space-y-xl">
